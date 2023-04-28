@@ -1,6 +1,7 @@
 import logging
 import openai
 import string
+import traceback
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -35,6 +36,9 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
     async def modify(
         self, resource: Resource, config: SassyStringModifierConfig
     ) -> None:
+        # This is technically redundant at the moment since openai does the same thing
+        openai.api_key = config.api_key
+        openai.organization = config.api_organization
         if not config.prompt_parts:
             config.prompt_parts = {
                 StringTypeEnum.IDENTIFIER: "It is EXTREMELY important that your entire response contains no spaces. ",
@@ -52,12 +56,12 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                 str_type = StringTypeEnum.IDENTIFIER
             else:
                 str_type = StringTypeEnum.SENTENCE
-            result = self.get_modified_string(text, text_length, str_type, config)
+            result = await self.get_modified_string(text, text_length, str_type, config)
             if result:
                 string_patch_config = StringPatchingConfig(offset=0, string=result)
                 await resource.run(StringPatchingModifier, string_patch_config)
 
-    def get_modified_string(
+    async def get_modified_string(
         self,
         text: str,
         text_length: int,
@@ -77,10 +81,9 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                                 If you understand, make the following message more sassy: \n{text}",
             },
         ]
-        # print(history)
 
         try:
-            response = self.get_chatgpt_response(history, num_tokens * 2, config)
+            response = await self.get_chatgpt_response(history, num_tokens * 2, config)
 
             if response:
                 retries = 0
@@ -107,7 +110,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                         ]
                     )
                     try:
-                        response = self.get_chatgpt_response(
+                        response = await self.get_chatgpt_response(
                             history, text_length * 2, config
                         )
 
@@ -121,23 +124,28 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                             )
                             print(f"max word: {result}")
                     except Exception as e:
-                        LOGGER.warning(f"Exception {e} occurred, skipped {text}")
+                        LOGGER.warning(f'Exception {e} occurred, skipped "{text}"')
+                        # openai's error messages are rather unhelpful. Log traceback for additional details
+                        LOGGER.warning(traceback.print_tb(e.__traceback__))
 
             # ChatGPT will sometimes add non-ASCII characters like emojis even when asked not to
             result = self.remove_unicode(result)
             return result[: text_length - 1]
 
         except Exception as e:
-            LOGGER.warning(f"Exception {e} occurred, skipped {text}")
+            LOGGER.warning(f'Exception {e} occurred, skipped "{text}"')
+            # openai's error messages are rather unhelpful. Log traceback for additional details
+            LOGGER.warning(traceback.print_tb(e.__traceback__))
 
-    def get_chatgpt_response(
+    async def get_chatgpt_response(
         self, history: List[str], max_tokens: int, config: SassyStringModifierConfig
     ) -> Optional[str]:
         @retry_with_exponential_backoff
-        def retry_response(**kwargs) -> Optional[str]:
-            return openai.ChatCompletion.create(**kwargs)
+        async def retry_response(**kwargs) -> Optional[str]:
+            response = await openai.ChatCompletion.acreate(**kwargs)
+            return response
 
-        return retry_response(
+        return await retry_response(
             model=config.model,
             temperature=config.temperature,
             max_tokens=max_tokens,
