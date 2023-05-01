@@ -20,8 +20,6 @@ OUTPUT_FILE_NAME = "sassy_strings"
 
 @pytest.fixture
 def elf_file(tmp_path):
-    print(os.getcwd())
-    print(f"temp_path: {tmp_path}")
     source_path = os.path.join(tmp_path, SOURCE_FILE)
     with open(os.path.join(SOURCE_DIR, SOURCE_FILE)) as f_in, open(
         source_path, "w"
@@ -43,19 +41,15 @@ async def resource(ofrak_context: OFRAKContext, elf_file) -> Resource:
 
 async def test_sassy_string_modifier(resource: Resource, elf_file):
     original = subprocess.run(elf_file, capture_output=True, text=True)
-    print(resource)
     await resource.unpack_recursively()
-    print(list(await resource.get_descendants()))
 
     child_strings = list(
         await resource.get_descendants(r_filter=ResourceFilter(tags=[AsciiString]))
     )
-    print(child_strings)
 
     tasks = list()
     for string in child_strings:
         tasks.append(string.run(SassyStringModifier, SassyStringModifierConfig()))
-    print(tasks)
     await asyncio.gather(*tasks)
 
     sassy_path = os.path.join(os.path.dirname(elf_file), OUTPUT_FILE_NAME)
@@ -65,5 +59,3 @@ async def test_sassy_string_modifier(resource: Resource, elf_file):
     modified = subprocess.run(sassy_path, capture_output=True, text=True)
     assert modified.returncode == original.returncode
     assert original.stdout != modified.stdout
-    print(original.stdout)
-    print(modified.stdout)
