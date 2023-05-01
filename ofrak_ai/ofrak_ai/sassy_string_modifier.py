@@ -5,6 +5,7 @@ import traceback
 
 from dataclasses import dataclass, field
 from enum import Enum
+from openai.openai_object import OpenAIObject
 from tiktoken import Encoding, encoding_for_model
 from typing import Dict, List, Optional
 
@@ -25,7 +26,7 @@ class StringTypeEnum(Enum):
 @dataclass
 class SassyStringModifierConfig(ChatGPTConfig):
     """
-    :param min_length: the minimum string length required for targeted strings
+    :param min_length: the minimum string length required for targeting strings
     :param encoding: the tiktoken encoding to use for calculating the number of tokens in a string
     :param max_retries: the maximum number of attempts to ask ChatGPT to meet the prompt specs
         before forcefully truncating the response
@@ -44,13 +45,12 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
 
     targets = (AsciiString,)
 
-    async def modify(
-        self, resource: Resource, config: SassyStringModifierConfig
-    ) -> None:
+    async def modify(self, resource: Resource, config: SassyStringModifierConfig):
         """
         :param resource: the string resource to modify
         """
-        # This is technically redundant at the moment since openai does the same thing
+        # This is technically redundant at the moment since openai does the same thing, but a safe-
+        # guard in case openai changes
         openai.api_key = config.api_key
         openai.organization = config.api_organization
         if not config.prompt_parts:
@@ -83,7 +83,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
         text_length: int,
         str_type: StringTypeEnum,
         config: SassyStringModifierConfig,
-    ) -> str:
+    ) -> Optional[str]:
         # Use the number of tokens in the string as an early bounds for response length, under the
         # assumption that we should allow ChatGPT more room for creative responses early in the
         # process and then more forcefully restrict its length after the initial request
@@ -126,7 +126,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                             },
                             {
                                 "role": "user",
-                                "content": f"Make it shorter.",
+                                "content": "Make it shorter.",
                             },
                         ]
                     )
@@ -161,9 +161,14 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
             # openai's error messages are rather unhelpful. Log traceback for additional details
             LOGGER.warning(traceback.print_tb(e.__traceback__))
 
+        return None
+
     async def _get_chatgpt_response(
-        self, history: List[str], max_tokens: int, config: SassyStringModifierConfig
-    ) -> Optional[str]:
+        self,
+        history: List[Dict[str, str]],
+        max_tokens: int,
+        config: SassyStringModifierConfig,
+    ) -> Optional[OpenAIObject]:
         @retry_with_exponential_backoff
         async def retry_response(**kwargs) -> Optional[str]:
             response = await openai.ChatCompletion.acreate(**kwargs)
