@@ -24,6 +24,15 @@ class StringTypeEnum(Enum):
 
 @dataclass
 class SassyStringModifierConfig(ChatGPTConfig):
+    """
+    :param min_length: the minimum string length required for targeted strings
+    :param encoding: the tiktoken encoding to use for calculating the number of tokens in a string
+    :param max_retries: the maximum number of attempts to ask ChatGPT to meet the prompt specs
+        before forcefully truncating the response
+    :param prompt_parts: adjustable prompt specifications to give to ChatGPT based on the string
+        type
+    """
+
     min_length: int = 50
     encoding: Encoding = encoding_for_model(ChatGPTConfig.model)
     max_retries: int = 3
@@ -31,11 +40,16 @@ class SassyStringModifierConfig(ChatGPTConfig):
 
 
 class SassyStringModifier(Modifier[SassyStringModifierConfig]):
+    """ """
+
     targets = (AsciiString,)
 
     async def modify(
         self, resource: Resource, config: SassyStringModifierConfig
     ) -> None:
+        """
+        :param resource: the string resource to modify
+        """
         # This is technically redundant at the moment since openai does the same thing
         openai.api_key = config.api_key
         openai.organization = config.api_organization
@@ -56,18 +70,23 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                 str_type = StringTypeEnum.IDENTIFIER
             else:
                 str_type = StringTypeEnum.SENTENCE
-            result = await self.get_modified_string(text, text_length, str_type, config)
+            result = await self._get_modified_string(
+                text, text_length, str_type, config
+            )
             if result:
                 string_patch_config = StringPatchingConfig(offset=0, string=result)
                 await resource.run(StringPatchingModifier, string_patch_config)
 
-    async def get_modified_string(
+    async def _get_modified_string(
         self,
         text: str,
         text_length: int,
         str_type: StringTypeEnum,
         config: SassyStringModifierConfig,
     ) -> str:
+        # Use the number of tokens in the string as an early bounds for response length, under the
+        # assumption that we should allow ChatGPT more room for creative responses early in the
+        # process and then more forcefully restrict its length after the initial request
         num_tokens = len(config.encoding.encode(text))
 
         history = [
@@ -83,19 +102,21 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
         ]
 
         try:
-            response = await self.get_chatgpt_response(history, num_tokens * 2, config)
+            response = await self._get_chatgpt_response(history, num_tokens * 2, config)
 
             if response:
                 retries = 0
                 print(f"original text: {text}")
                 print(f"chatgpt response: {response.choices[0].message.content}")
+                # Handle identifier and sentence lengths the same way
                 if str_type == StringTypeEnum.IDENTIFIER:
-                    # Since ChatGPT likes to add commentary, assume the longest word in the response is the sassified input
+                    # Since ChatGPT likes to add commentary, assume the longest word in the response
+                    # is the sassified input
                     result = max(response.choices[0].message.content.split(), key=len)
                     print(f"max word: {result}")
                 else:
                     result = response.choices[0].message.content
-                while len(result) > text_length and retries < config.max_retries:
+                while len(result) > text_length and retries <= config.max_retries:
                     retries += 1
                     history.extend(
                         [
@@ -110,7 +131,9 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                         ]
                     )
                     try:
-                        response = await self.get_chatgpt_response(
+                        # max_tokens will truncate the generated response before sending it back to
+                        # us, so give it a bit more leeway by setting max_tokens = text_length * 2
+                        response = await self._get_chatgpt_response(
                             history, text_length * 2, config
                         )
 
@@ -129,7 +152,8 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                         LOGGER.warning(traceback.print_tb(e.__traceback__))
 
             # ChatGPT will sometimes add non-ASCII characters like emojis even when asked not to
-            result = self.remove_unicode(result)
+            result = self._remove_unicode(result)
+            # Forcefully truncate response if it's still over the length req after all retries
             return result[: text_length - 1]
 
         except Exception as e:
@@ -137,7 +161,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
             # openai's error messages are rather unhelpful. Log traceback for additional details
             LOGGER.warning(traceback.print_tb(e.__traceback__))
 
-    async def get_chatgpt_response(
+    async def _get_chatgpt_response(
         self, history: List[str], max_tokens: int, config: SassyStringModifierConfig
     ) -> Optional[str]:
         @retry_with_exponential_backoff
@@ -152,6 +176,6 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
             messages=[message for message in history],
         )
 
-    def remove_unicode(self, text: str) -> str:
+    def _remove_unicode(self, text: str) -> str:
         printable = set(string.printable)
         return "".join(filter(lambda x: x in printable, text))
