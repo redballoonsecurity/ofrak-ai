@@ -37,7 +37,7 @@ setuptools.setup(
     package_data={
         "ofrak_ai": ["py.typed"],
     },
-    install_requires=["ofrak~=2.2"] + read_requirements("requirements.txt"),
+    install_requires=["ofrak~=3.0.0"] + read_requirements("requirements.txt"),
     extras_require={
         "test": read_requirements("requirements-test.txt"),
     },
