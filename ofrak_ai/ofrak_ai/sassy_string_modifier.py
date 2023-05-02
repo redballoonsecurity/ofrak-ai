@@ -40,7 +40,10 @@ class SassyStringModifierConfig(ChatGPTConfig):
 
 
 class SassyStringModifier(Modifier[SassyStringModifierConfig]):
-    """ """
+    """
+    Targets all [AsciiStrings][ofrak.core.strings.AsciiString] over a specified length, requests
+    ChatGPT to sassify them, and patches the sassified strings back into the binary.
+    """
 
     targets = (AsciiString,)
 
