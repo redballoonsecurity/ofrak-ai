@@ -23,7 +23,7 @@ class ChatGPTConfig(ComponentConfig):
     api_organization: Optional[str] = os.getenv("OPENAI_ORGANIZATION")
     model: str = "gpt-3.5-turbo"
     system_message: Optional[str] = None
-    temperature: float = 1
+    temperature: float = 1.0
 
 
 @dataclass
