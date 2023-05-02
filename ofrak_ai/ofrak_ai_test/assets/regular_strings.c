@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+int thisIsAReallyLongFunctionNameThatExceedsTheMinimumLength(int);
+
 int main(void)
 {
-    char string[60] = "This is a test string that I would like you to sassify\n";
+    char string[60] = "This is a test string that won't be sassified because it's not tagged as an AsciiString\n";
     printf("%s\n", string);
     int thisIsAReallyLongIdentifierNameThatExceedsTheMinimumLength = 1;
     printf("SXS: %s() ACTCTX_FLAG_RESOURCE_NAME_VALID set but lpResourceName == 0\n", "function1");
@@ -23,7 +25,7 @@ int main(void)
     printf("SXS: Invalid parameter(s) passed to FindActCtxSection\n");
     thisIsAReallyLongIdentifierNameThatExceedsTheMinimumLength += 1;
     printf("SXS: %s() CsrCaptureMessageMultiUnicodeStringsInPlace failed\n", "function5");
-    thisIsAReallyLongIdentifierNameThatExceedsTheMinimumLength += 1;
+    thisIsAReallyLongIdentifierNameThatExceedsTheMinimumLength = thisIsAReallyLongFunctionNameThatExceedsTheMinimumLength(thisIsAReallyLongIdentifierNameThatExceedsTheMinimumLength);
     printf("ConvertStringSecurityDescriptorToSecurityDescriptorW\n");
     thisIsAReallyLongIdentifierNameThatExceedsTheMinimumLength += 2;
     printf("ConvertSecurityDescriptorToStringSecurityDescriptorW\n");
@@ -68,4 +70,10 @@ int main(void)
     printf("No recovery rotuine found when control reached WerpRecoveryInvokedRemotely\n");
     thisIsAReallyLongIdentifierNameThatExceedsTheMinimumLength *= 2;
     return thisIsAReallyLongIdentifierNameThatExceedsTheMinimumLength;
+}
+
+int thisIsAReallyLongFunctionNameThatExceedsTheMinimumLength(int i)
+{
+    i *= 2;
+    return i;
 }
