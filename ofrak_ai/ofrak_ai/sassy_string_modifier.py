@@ -48,7 +48,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
 
     targets = (AsciiString,)
 
-    async def modify(self, resource: Resource, config: SassyStringModifierConfig):
+    async def modify(self, resource: Resource, config: SassyStringModifierConfig = SassyStringModifierConfig()):
         """
         :param resource: the string resource to modify
         """
