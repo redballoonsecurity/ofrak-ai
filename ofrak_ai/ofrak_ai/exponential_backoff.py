@@ -25,7 +25,7 @@ SOFTWARE.
 import asyncio
 import random
 
-from openai.error import RateLimitError
+from openai.error import RateLimitError, OpenAIError
 
 # Modified from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_handle_rate_limits.ipynb
 def retry_with_exponential_backoff(
@@ -36,7 +36,14 @@ def retry_with_exponential_backoff(
     max_retries: int = 10,
     errors: tuple = (RateLimitError,),
 ):
-    """Retry a function with exponential backoff."""
+    """
+    Retry a function with exponential backoff.
+
+    AuthenticationError is NOT raised when the OPENAI_ORGANIZATION value is incorrect or missing.
+    Instead, the OpenAI API treats it as a RateLimitError.
+
+    :raises OpenAIError: if unable to make a valid request or receive a response from ChatGPT
+    """
 
     async def wrapper(*args, **kwargs):
         if exponential_base < 1:
@@ -56,15 +63,15 @@ def retry_with_exponential_backoff(
                 num_retries += 1
 
                 if num_retries >= max_retries:
-                    raise Exception(
-                        f"Maximum number of retries ({max_retries}) exceeded."
+                    raise OpenAIError(
+                        message=f"Maximum number of retries ({max_retries}) exceeded."
                     )
 
                 delay *= exponential_base * (1 + jitter * random.random())
                 await asyncio.sleep(delay)
 
             # Raise exceptions for any errors not specified
-            except Exception as e:
+            except OpenAIError as e:
                 raise e
 
     return wrapper

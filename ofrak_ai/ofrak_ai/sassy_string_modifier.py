@@ -5,6 +5,7 @@ import string
 from dataclasses import dataclass, field
 from enum import Enum
 from openai.openai_object import OpenAIObject
+from openai.error import OpenAIError
 from tiktoken import Encoding, encoding_for_model
 from typing import Dict, List, Optional
 
@@ -146,18 +147,17 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                             result = max(
                                 response.choices[0].message.content.split(), key=len
                             )
-                    except Exception as e:
-                        # openai's error messages are rather unhelpful. Log traceback for additional details
-                        LOGGER.exception(f'Exception {e} occurred, skipped "{text}"')
+                    except OpenAIError as e:
+                        raise e
 
             # ChatGPT will sometimes add non-ASCII characters like emojis even when asked not to
             result = self._remove_unicode(result)
             # Forcefully truncate response if it's still over the length req after all retries
             return result[: text_length - 1]
 
-        except Exception as e:
+        except OpenAIError as e:
             # openai's error messages are rather unhelpful. Log traceback for additional details
-            LOGGER.exception(f'Exception {e} occurred, skipped "{text}"')
+            LOGGER.exception(f'Exception occurred, skipped "{text}"')
 
         return None
 
@@ -169,8 +169,11 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
     ) -> Optional[OpenAIObject]:
         @retry_with_exponential_backoff
         async def retry_response(**kwargs) -> Optional[str]:
-            response = await openai.ChatCompletion.acreate(**kwargs)
-            return response
+            try:
+                response = await openai.ChatCompletion.acreate(**kwargs)
+                return response
+            except OpenAIError as e:
+                raise e
 
         return await retry_response(
             model=config.model,
