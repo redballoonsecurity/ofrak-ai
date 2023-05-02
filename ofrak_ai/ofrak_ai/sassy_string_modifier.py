@@ -1,7 +1,6 @@
 import logging
 import openai
 import string
-import traceback
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -76,6 +75,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
             if result:
                 string_patch_config = StringPatchingConfig(offset=0, string=result)
                 await resource.run(StringPatchingModifier, string_patch_config)
+                LOGGER.debug(f"Original String: {text}\nSassified String: {result}")
 
     async def _get_modified_string(
         self,
@@ -104,19 +104,21 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
         try:
             response = await self._get_chatgpt_response(history, num_tokens * 2, config)
 
+            # Sometimes saw cases where ChatGPT sent no response, so validate there was a response
             if response:
                 retries = 0
-                print(f"original text: {text}")
-                print(f"chatgpt response: {response.choices[0].message.content}")
                 # Handle identifier and sentence lengths the same way
                 if str_type == StringTypeEnum.IDENTIFIER:
                     # Since ChatGPT likes to add commentary, assume the longest word in the response
                     # is the sassified input
                     result = max(response.choices[0].message.content.split(), key=len)
-                    print(f"max word: {result}")
                 else:
                     result = response.choices[0].message.content
-                while len(result) > text_length and retries <= config.max_retries:
+                while (
+                    len(result) > text_length
+                    and retries <= config.max_retries
+                    and response
+                ):
                     retries += 1
                     history.extend(
                         [
@@ -137,19 +139,13 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                             history, text_length * 2, config
                         )
 
-                        print(f"original text: {text}")
-                        print(
-                            f"chatgpt response: {response.choices[0].message.content}"
-                        )
-                        if str_type == StringTypeEnum.IDENTIFIER:
+                        if str_type == StringTypeEnum.IDENTIFIER and response:
                             result = max(
                                 response.choices[0].message.content.split(), key=len
                             )
-                            print(f"max word: {result}")
                     except Exception as e:
-                        LOGGER.warning(f'Exception {e} occurred, skipped "{text}"')
                         # openai's error messages are rather unhelpful. Log traceback for additional details
-                        LOGGER.warning(traceback.print_tb(e.__traceback__))
+                        LOGGER.exception(f'Exception {e} occurred, skipped "{text}"')
 
             # ChatGPT will sometimes add non-ASCII characters like emojis even when asked not to
             result = self._remove_unicode(result)
@@ -157,9 +153,8 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
             return result[: text_length - 1]
 
         except Exception as e:
-            LOGGER.warning(f'Exception {e} occurred, skipped "{text}"')
             # openai's error messages are rather unhelpful. Log traceback for additional details
-            LOGGER.warning(traceback.print_tb(e.__traceback__))
+            LOGGER.exception(f'Exception {e} occurred, skipped "{text}"')
 
         return None
 
