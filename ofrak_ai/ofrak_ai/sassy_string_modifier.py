@@ -48,7 +48,11 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
 
     targets = (AsciiString,)
 
-    async def modify(self, resource: Resource, config: SassyStringModifierConfig = SassyStringModifierConfig()):
+    async def modify(
+        self,
+        resource: Resource,
+        config: SassyStringModifierConfig = SassyStringModifierConfig(),
+    ):
         """
         :param resource: the string resource to modify
         """
@@ -77,9 +81,11 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                 text, text_length, str_type, config
             )
             if result:
-                string_patch_config = StringPatchingConfig(offset=0, string=result)
-                await resource.run(StringPatchingModifier, string_patch_config)
                 LOGGER.debug(f"Original String: {text}\nSassified String: {result}")
+                string_patch_config = StringPatchingConfig(
+                    offset=0, string=result, null_terminate=True
+                )
+                await resource.run(StringPatchingModifier, string_patch_config)
 
     async def _get_modified_string(
         self,
@@ -147,6 +153,8 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                             result = max(
                                 response.choices[0].message.content.split(), key=len
                             )
+                        elif response:
+                            result = response.choices[0].message.content
                     except OpenAIError as e:
                         raise e
 
