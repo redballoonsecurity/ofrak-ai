@@ -16,4 +16,4 @@ COPY $OFRAK_AI_DIR /ofrak_ai
 WORKDIR /ofrak_ai
 RUN make install
 WORKDIR /
-ENTRYPOINT /bin/sh
+ENTRYPOINT /bin/bash
