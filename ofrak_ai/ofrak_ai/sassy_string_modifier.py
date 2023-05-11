@@ -4,16 +4,14 @@ import string
 
 from dataclasses import dataclass, field
 from enum import Enum
-from openai.openai_object import OpenAIObject
 from openai.error import OpenAIError
 from tiktoken import Encoding, encoding_for_model
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from ofrak import Resource
 from ofrak.core.strings import AsciiString, StringPatchingConfig, StringPatchingModifier
 from ofrak.component.modifier import Modifier
-from ofrak_ai.chatgpt import ChatGPTConfig
-from ofrak_ai.exponential_backoff import retry_with_exponential_backoff
+from ofrak_ai.chatgpt import ChatGPTConfig, get_chatgpt_response
 
 LOGGER = logging.getLogger(__name__)
 
@@ -112,7 +110,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
         ]
 
         try:
-            response = await self._get_chatgpt_response(history, num_tokens * 2, config)
+            response = await get_chatgpt_response(history, num_tokens * 2, config)
 
             # Sometimes saw cases where ChatGPT sent no response, so validate there was a response
             if response:
@@ -145,7 +143,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
                     try:
                         # max_tokens will truncate the generated response before sending it back to
                         # us, so give it a bit more leeway by setting max_tokens = text_length * 2
-                        response = await self._get_chatgpt_response(
+                        response = await get_chatgpt_response(
                             history, text_length * 2, config
                         )
 
@@ -168,27 +166,6 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
             LOGGER.exception(f'Exception occurred, skipped "{text}"')
 
         return None
-
-    async def _get_chatgpt_response(
-        self,
-        history: List[Dict[str, str]],
-        max_tokens: int,
-        config: SassyStringModifierConfig,
-    ) -> Optional[OpenAIObject]:
-        @retry_with_exponential_backoff
-        async def retry_response(**kwargs) -> Optional[str]:
-            try:
-                response = await openai.ChatCompletion.acreate(**kwargs)
-                return response
-            except OpenAIError as e:
-                raise e
-
-        return await retry_response(
-            model=config.model,
-            temperature=config.temperature,
-            max_tokens=max_tokens,
-            messages=[message for message in history],
-        )
 
     def _remove_unicode(self, text: str) -> str:
         printable = set(string.printable)

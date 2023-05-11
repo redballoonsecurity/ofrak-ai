@@ -1,10 +1,14 @@
 import os
+import openai
 
 from dataclasses import dataclass
-from typing import Optional
+from openai.openai_object import OpenAIObject
+from openai.error import OpenAIError
+from typing import List, Dict, Optional
 
 from ofrak.model.component_model import ComponentConfig
 from ofrak.model.resource_model import ResourceAttributes
+from ofrak_ai.exponential_backoff import retry_with_exponential_backoff
 
 
 @dataclass
@@ -29,3 +33,24 @@ class ChatGPTConfig(ComponentConfig):
 @dataclass
 class ChatGPTAnalysis(ResourceAttributes):
     description: str
+
+
+async def get_chatgpt_response(
+    history: List[Dict[str, str]],
+    max_tokens: int,
+    config: ChatGPTConfig,
+) -> Optional[OpenAIObject]:
+    @retry_with_exponential_backoff
+    async def retry_response(**kwargs) -> Optional[str]:
+        try:
+            response = await openai.ChatCompletion.acreate(**kwargs)
+            return response
+        except OpenAIError as e:
+            raise e
+
+    return await retry_response(
+        model=config.model,
+        temperature=config.temperature,
+        max_tokens=max_tokens,
+        messages=[message for message in history],
+    )
