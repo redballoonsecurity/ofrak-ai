@@ -40,6 +40,20 @@ async def get_chatgpt_response(
     max_tokens: int,
     config: ChatGPTConfig,
 ) -> Optional[OpenAIObject]:
+    """
+    Calls the OpenAI API with the appropriate model and message history while performing
+    exponential backoff in case of rate limit errors.
+
+    :param history: a history of messages conforming to the OpenAI API specification
+    :param max_tokens: a maximum number of tokens to include in the model's response before
+        truncation occurs
+    :param config: an instance of ChatGPTConfig with the desired model parameters to use
+
+    :raises OpenAIError: if unable to make a valid request or receive a response from ChatGPT
+
+    :return: a model response in the form of an OpenAIObject if the call succeeds, None otherwise
+    """
+
     @retry_with_exponential_backoff
     async def retry_response(**kwargs) -> Optional[str]:
         try:
