@@ -2,7 +2,7 @@ import os
 import openai
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum
 from openai.openai_object import OpenAIObject
 from openai.error import OpenAIError
 from typing import List, Dict, Optional
@@ -12,7 +12,7 @@ from ofrak.model.resource_model import ResourceAttributes
 from ofrak_ai.exponential_backoff import retry_with_exponential_backoff
 
 
-class ModelType(StrEnum):
+class ModelType(str, Enum):
     """
     Models ending in 4-digit long sequences are snapshots of their respective models. These are
     static versions that receive no updates and will be deprecated 3 months after the newest
@@ -65,7 +65,7 @@ async def get_chatgpt_response(
     history: List[Dict[str, str]],
     max_tokens: int,
     config: ChatGPTConfig,
-) -> Optional[OpenAIObject]:
+) -> OpenAIObject:
     """
     Calls the OpenAI API with the appropriate model and message history while performing
     exponential backoff in case of rate limit errors.
@@ -77,11 +77,11 @@ async def get_chatgpt_response(
 
     :raises OpenAIError: if unable to make a valid request or receive a response from ChatGPT
 
-    :return: a model response in the form of an OpenAIObject if the call succeeds, None otherwise
+    :return: a model response in the form of an OpenAIObject if the call succeeds
     """
 
     @retry_with_exponential_backoff
-    async def retry_response(**kwargs) -> Optional[str]:
+    async def retry_response(**kwargs) -> OpenAIObject:
         try:
             response = await openai.ChatCompletion.acreate(**kwargs)
             return response

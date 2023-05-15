@@ -15,5 +15,6 @@ ARG OFRAK_AI_DIR=.
 COPY $OFRAK_AI_DIR /ofrak_ai
 WORKDIR /ofrak_ai
 RUN make install
+RUN pip install -r /ofrak_ai/requirements-test.txt
 WORKDIR /
 ENTRYPOINT /bin/bash

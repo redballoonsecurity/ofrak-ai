@@ -15,5 +15,5 @@ inspect:
 
 .PHONY: test
 test: inspect
-	$(PYTHON) -m pytest -n auto --cov=ofrak_io --cov-report=term-missing --cov-fail-under=100 ofrak_io_test
+	$(PYTHON) -m pytest ofrak_ai_test --cov=ofrak_ai --cov-report=term-missing
 	fun-coverage --cov-fail-under=100
