@@ -205,21 +205,25 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
         """
         results: List[str] = []
         length = len(text)
+        repetition_count = 0
 
         # For each format specifier, find the closest following specifier in the string
         for idx, char in enumerate(text):
-            # Skip backward-looking escaped '%' signs.
-            # TODO: This doesn't handle '%%%' correctly.
-            if char == "%" and (idx == 0 or text[idx - 1] != "%"):
-                # Skip forward-looking escaped '%' signs
-                if idx < length - 1 and text[idx + 1] == "%":
-                    continue
-                specifier_orders = filter(
-                    lambda x: x >= 0,
-                    [text.find(specifier, idx) for specifier in SPECIFIER_TYPES],
-                )
-                closest_match = min(specifier_orders)
-                # Capture all optional format arguments
-                results.append(text[idx : closest_match + 1])
+            if char == "%":
+                repetition_count += 1
+                # Skip even-numbered occurrences (escaped) of '%' signs
+                if idx == 0 or repetition_count % 2 == 1:
+                    # Skip forward-looking escaped '%' signs
+                    if idx < length - 1 and text[idx + 1] == "%":
+                        continue
+                    specifier_orders = filter(
+                        lambda x: x >= 0,
+                        [text.find(specifier, idx) for specifier in SPECIFIER_TYPES],
+                    )
+                    closest_match = min(specifier_orders)
+                    # Capture all optional format arguments
+                    results.append(text[idx : closest_match + 1])
+            else:
+                repetition_count = 0
 
         return results
