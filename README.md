@@ -1,17 +1,23 @@
 # OFRAK AI
 
-## License
+## OFRAK AI Overview
 
-The code in this repository comes with an [OFRAK Community License](LICENSE), which is intended for educational uses, personal development, or just having fun.
+This pacakge contains AI-powered OFRAK components, using the power of [OFRAK](https://github.com/redballoonsecurity/ofrak) to unpack, analyze, modify, and repack binaries along with the latest large language models to assist with binary analysis and reverse engineering.
 
-Users interested in OFRAK for commercial purposes can request the Pro or Enterprise License. See [OFRAK Licensing](https://ofrak.com/license/) for more information.
+## Installation
 
-## Contributing
+```
+git clone https://github.com/redballoonsecurity/ofrak-ai.git
+cd ofrak_ai
+pip install .
+```
 
-Red Balloon Security is excited for security researchers and developers to contribute to this repository.
+## FAQ
 
-For details, please see our [contributor guide](CONTRIBUTING.md) and the [Python development guide](docs/contributor-guide/getting-started.md).
+Q. How do I use my OpenAI API key?
 
-## Support
+A. Run the command `export OPENAI_API_KEY='<your key>'`, and optionally `export OPENAI_ORGANIZATION='<your organization>'`. If you'd like this to be persistent, add it to your `.bashrc` or appropriate file.
 
-Please contact [ofrak@redballoonsecurity.com](mailto:ofrak@redballoonsecurity.com), or write to us on [the OFRAK Slack](https://join.slack.com/t/ofrak/shared_invite/zt-1dywj33gw-DcicqLmzgbdeRTCSF0A_Jg) with any questions or issues regarding OFRAK. We look forward to getting your feedback! Sign up for the [OFRAK Mailing List](https://ofrak.com/sign-up) to receive monthly updates about OFRAK code improvements and new features.
+Q. Why am I encountering an APIConnectionError even though my `aiohttp` install is up-to-date?
+
+A. Run the `Install Certificates.command` script that comes bundled with your Python install.
