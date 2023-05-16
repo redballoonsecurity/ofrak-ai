@@ -45,6 +45,7 @@ def retry_with_exponential_backoff(
     :raises OpenAIError: if unable to make a valid request or receive a response from ChatGPT
     """
 
+    @functools.wraps
     async def wrapper(*args, **kwargs):
         if exponential_base < 1:
             raise Exception(
