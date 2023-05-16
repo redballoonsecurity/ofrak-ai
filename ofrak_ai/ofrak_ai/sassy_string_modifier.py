@@ -16,6 +16,8 @@ from ofrak_ai.chatgpt import ChatGPTConfig, get_chatgpt_response
 
 LOGGER = logging.getLogger(__name__)
 
+SPECIFIER_PATTERN = re.compile(r"(?<!%)(%%)*(%[^%]*?[diuoxXfFeEgGaAcCsSpn])")
+
 
 class StringType(Enum):
     IDENTIFIER = 0
@@ -36,7 +38,13 @@ class SassyStringModifierConfig(ChatGPTConfig):
     min_length: int = 50
     encoding: Encoding = encoding_for_model(ChatGPTConfig.model)
     max_retries: int = 3
-    prompt_parts: Dict[StringType, str] = field(default_factory=dict)
+    prompt_parts: Dict[StringType, str] = field(
+        default_factory=lambda: {
+            StringType.IDENTIFIER: "It is EXTREMELY important that your entire response contains no spaces. ",
+            StringType.SENTENCE: "If the input string contains any C format specifiers, then it is EXTREMELY\
+            important that your response contains the same specifiers in the same order. ",
+        }
+    )
 
 
 class SassyStringModifier(Modifier[SassyStringModifierConfig]):
@@ -59,12 +67,6 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
         # guard in case openai changes
         openai.api_key = config.api_key
         openai.organization = config.api_organization
-        if not config.prompt_parts:
-            config.prompt_parts = {
-                StringType.IDENTIFIER: "It is EXTREMELY important that your entire response contains no spaces. ",
-                StringType.SENTENCE: "If the input string contains any C format specifiers, then it is EXTREMELY\
-                    important that your response contains the same specifiers in the same order. ",
-            }
 
         string = await resource.view_as(AsciiString)
         text = string.Text
@@ -198,7 +200,6 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
     def _extract_specifiers(self, text: str) -> List[str]:
         # Capture odd number of occurrences of % (unescaped % signs) and all text non-greedily
         # until a valid format specifier is found
-        pattern = re.compile(r"(?<!%)(%%)*(%[^%]*?[diuoxXfFeEgGaAcCsSpn])")
-        matches = pattern.findall(text)
+        matches = SPECIFIER_PATTERN.findall(text)
 
         return [match[1] for match in matches]
