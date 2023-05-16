@@ -1,5 +1,6 @@
 import logging
 import openai
+import re
 import string
 
 from dataclasses import dataclass, field
@@ -14,8 +15,6 @@ from ofrak.component.modifier import Modifier
 from ofrak_ai.chatgpt import ChatGPTConfig, get_chatgpt_response
 
 LOGGER = logging.getLogger(__name__)
-
-SPECIFIER_TYPES = set("diuoxXfFeEgGaAcCsSpn")
 
 
 class StringType(Enum):
@@ -172,7 +171,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
 
             # No response with valid specifiers after all retries
             if not self._verify_specifiers(text, result):
-                LOGGER.warning(f"Unable to request valid specifiers for ")
+                LOGGER.warning(f"Unable to request valid specifiers for {text}")
                 return None
             # ChatGPT will sometimes add non-ASCII characters like emojis even when asked not to
             result = self._remove_unicode(result)
@@ -192,38 +191,14 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
     def _verify_specifiers(self, input_text: str, output_text: str) -> bool:
         # Assumes original string has valid specifiers
         input_specifiers = self._extract_specifiers(input_text)
-        try:
-            output_specifiers = self._extract_specifiers(output_text)
-        except ValueError:
-            return False
+        output_specifiers = self._extract_specifiers(output_text)
 
         return input_specifiers == output_specifiers
 
     def _extract_specifiers(self, text: str) -> List[str]:
-        """
-        :raises ValueError: if no matching specifier found for a '%' symbol
-        """
-        results: List[str] = []
-        length = len(text)
-        repetition_count = 0
+        # Capture odd number of occurrences of % (unescaped % signs) and all text non-greedily
+        # until a valid format specifier is found
+        pattern = re.compile(r"(?<!%)(%%)*(%[^%]*?[diuoxXfFeEgGaAcCsSpn])")
+        matches = pattern.findall(text)
 
-        # For each format specifier, find the closest following specifier in the string
-        for idx, char in enumerate(text):
-            if char == "%":
-                repetition_count += 1
-                # Skip even-numbered occurrences (escaped) of '%' signs
-                if idx == 0 or repetition_count % 2 == 1:
-                    # Skip forward-looking escaped '%' signs
-                    if idx < length - 1 and text[idx + 1] == "%":
-                        continue
-                    specifier_orders = filter(
-                        lambda x: x >= 0,
-                        [text.find(specifier, idx) for specifier in SPECIFIER_TYPES],
-                    )
-                    closest_match = min(specifier_orders)
-                    # Capture all optional format arguments
-                    results.append(text[idx : closest_match + 1])
-            else:
-                repetition_count = 0
-
-        return results
+        return [match[1] for match in matches]
