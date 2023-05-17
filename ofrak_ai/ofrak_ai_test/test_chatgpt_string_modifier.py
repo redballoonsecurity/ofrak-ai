@@ -7,9 +7,10 @@ from ofrak.ofrak_context import OFRAKContext
 from ofrak.resource import Resource
 from ofrak.service.resource_service_i import ResourceFilter
 from ofrak.core.strings import AsciiString
-from ofrak_ai.sassy_string_modifier import (
-    SassyStringModifier,
-    SassyStringModifierConfig,
+from ofrak_ai.chatgpt_string_modifier import (
+    ChatGPTStringModifier,
+    ChatGPTStringModifierConfig,
+    VoiceType,
 )
 
 SOURCE_DIR = os.path.join(os.path.dirname(__file__), "assets/")
@@ -49,7 +50,12 @@ async def test_sassy_string_modifier(resource: Resource, elf_file):
 
     tasks = list()
     for string in child_strings:
-        tasks.append(string.run(SassyStringModifier, SassyStringModifierConfig()))
+        tasks.append(
+            string.run(
+                ChatGPTStringModifier,
+                ChatGPTStringModifierConfig(voice_type=VoiceType.SASSY),
+            )
+        )
     await asyncio.gather(*tasks)
 
     sassy_path = os.path.join(os.path.dirname(elf_file), OUTPUT_FILE_NAME)

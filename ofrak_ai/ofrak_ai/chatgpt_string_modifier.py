@@ -24,8 +24,23 @@ class StringType(Enum):
     SENTENCE = 1
 
 
+class VoiceType(Enum):
+    SASSY = 0
+    PASSIVE_AGGRESIVE = 1
+    PIRATE = 2
+    CUSTOM = 3
+
+
 @dataclass
-class SassyStringModifierConfig(ChatGPTConfig):
+class VoiceConfig:
+    """ """
+
+    voice_noun: str
+    voice_adjective: str
+
+
+@dataclass
+class ChatGPTStringModifierConfig(ChatGPTConfig):
     """
     :param min_length: the minimum string length required for targeting strings
     :param encoding: the tiktoken encoding to use for calculating the number of tokens in a string
@@ -35,6 +50,7 @@ class SassyStringModifierConfig(ChatGPTConfig):
         type
     """
 
+    voice_type: VoiceType = VoiceType.CUSTOM
     min_length: int = 50
     encoding: Encoding = encoding_for_model(ChatGPTConfig.model)
     max_retries: int = 3
@@ -45,9 +61,27 @@ class SassyStringModifierConfig(ChatGPTConfig):
             important that your response contains the same specifiers in the same order. ",
         }
     )
+    voice_config: VoiceConfig = field(default_factory=lambda: VoiceConfig("", ""))
+
+    def __post_init__(self):
+        if self.voice_type == VoiceType.SASSY:
+            self.voice_config.voice_noun = "sassy person"
+            self.voice_config.voice_adjective = "sassy"
+        elif self.voice_type == VoiceType.PASSIVE_AGGRESIVE:
+            self.voice_config.voice_noun = "passive aggressive person"
+            self.voice_config.voice_adjective = "passive aggressive"
+        elif self.voice_type == VoiceType.PIRATE:
+            self.voice_config.voice_noun = "pirate"
+            self.voice_config.voice_adjective = "piratey"
+        elif self.voice_type == VoiceType.CUSTOM:
+            if self.voice_config is None:
+                LOGGER.error("Custom voice requires valid VoiceConfig")
+            self.voice_config = self.voice_config
+        else:
+            LOGGER.error("Invalid voice used for ChatGPTStringModifier")
 
 
-class SassyStringModifier(Modifier[SassyStringModifierConfig]):
+class ChatGPTStringModifier(Modifier[ChatGPTStringModifierConfig]):
     """
     Targets all [AsciiStrings][ofrak.core.strings.AsciiString] over a specified length, requests
     ChatGPT to sassify them, and patches the sassified strings back into the binary.
@@ -58,7 +92,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
     async def modify(
         self,
         resource: Resource,
-        config: SassyStringModifierConfig = SassyStringModifierConfig(),
+        config: ChatGPTStringModifierConfig = ChatGPTStringModifierConfig(),
     ):
         """
         :param resource: the string resource to modify
@@ -93,7 +127,7 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
         text: str,
         text_length: int,
         str_type: StringType,
-        config: SassyStringModifierConfig,
+        config: ChatGPTStringModifierConfig,
     ) -> Optional[str]:
         # Use the number of tokens in the string as an early bounds for response length, under the
         # assumption that we should allow ChatGPT more room for creative responses early in the
@@ -103,12 +137,13 @@ class SassyStringModifier(Modifier[SassyStringModifierConfig]):
         history = [
             {
                 "role": "user",
-                "content": f"You are a sassy person. I will send a message and you will respond by making the text of the message more sassy.\
-                                The sassy text you generate must be shorter or equal to the length to the length of the original message.\
-                                It is EXTREMELY important that your sassy version is shorter than the original and contains only ASCII characters.\
+                "content": f"You are a {config.voice_config.voice_noun}.\
+                                I will send a message and you will respond by making the text of the message more {config.voice_config.voice_adjective}.\
+                                The text you generate must be shorter or equal to the length to the length of the original message.\
+                                It is EXTREMELY important that your version is shorter than the original and contains only ASCII characters.\
                                 {(str_type == StringType.IDENTIFIER) * config.prompt_parts.get(StringType.IDENTIFIER, '')} \
                                 {(str_type == StringType.SENTENCE) * config.prompt_parts.get(StringType.SENTENCE, '')} \
-                                If you understand, make the following message more sassy: \n{text}",
+                                If you understand, make the following message more {config.voice_config.voice_adjective}: \n{text}",
             },
         ]
 

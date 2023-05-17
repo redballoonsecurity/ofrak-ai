@@ -15,7 +15,7 @@ class egg_info_ex(egg_info):
         egg_info.run(self)
 
 
-with open("README.md") as f:
+with open("../README.md") as f:
     long_description = f.read()
 
 
