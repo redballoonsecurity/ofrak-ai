@@ -8,6 +8,7 @@ from openai.error import OpenAIError
 from typing import List, Dict, Optional
 
 from ofrak.model.component_model import ComponentConfig
+from ofrak.model.resource_model import ResourceAttributes
 from ofrak_ai.exponential_backoff import retry_with_exponential_backoff
 
 
@@ -53,6 +54,11 @@ class ChatGPTConfig(ComponentConfig):
     model: str = ModelType.THREE_FIVE_TURBO
     system_message: Optional[str] = None
     temperature: float = 1.0
+
+
+@dataclass
+class ChatGPTAnalysis(ResourceAttributes):
+    description: str
 
 
 async def get_chatgpt_response(
