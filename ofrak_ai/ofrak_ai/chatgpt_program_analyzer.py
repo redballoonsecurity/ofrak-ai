@@ -19,7 +19,7 @@ LOGGER = logging.getLogger(__name__)
 class ChatGPTProgramAnalyzerConfig(ChatGPTConfig):
     """
     :param min_length: minimum length string to pull from target Program to be sent to ChatGPT
-        for analysis - useful for meeting a model's token constraints
+        for analysis - useful for limiting token usage
     """
 
     encoding: Encoding = encoding_for_model(ChatGPTConfig.model)
@@ -27,7 +27,7 @@ class ChatGPTProgramAnalyzerConfig(ChatGPTConfig):
 
 
 class ChatGPTProgramAnalyzer(Analyzer[ChatGPTProgramAnalyzerConfig, ChatGPTAnalysis]):
-    # targets = (Program,)
+    targets = (Program,)
     outputs = (ChatGPTAnalysis,)
 
     async def analyze(
@@ -59,17 +59,19 @@ class ChatGPTProgramAnalyzer(Analyzer[ChatGPTProgramAnalyzerConfig, ChatGPTAnaly
         strings = [string.Text for string in string_resources]
 
         responses = []
-        batches = self.batch_request_text(strings, config)
-        responses.extend(await self.get_batch_responses(batches, config, "strings"))
-
-        batches = self.batch_request_text(names, config, ignore_min=True)
+        string_batches = self._batch_request_text(strings, config)
         responses.extend(
-            await self.get_batch_responses(batches, config, "names of symbols")
+            await self._get_batch_responses(string_batches, config, "strings")
+        )
+
+        symbol_batches = self._batch_request_text(names, config, ignore_min=True)
+        responses.extend(
+            await self._get_batch_responses(symbol_batches, config, "names of symbols")
         )
 
         return ChatGPTAnalysis("\n".join(responses))
 
-    def batch_request_text(self, texts: List[str], config, ignore_min=False):
+    def _batch_request_text(self, texts: List[str], config, ignore_min=False):
         batches = []
         curr_batch = []
         token_count = 0
@@ -78,33 +80,34 @@ class ChatGPTProgramAnalyzer(Analyzer[ChatGPTProgramAnalyzerConfig, ChatGPTAnaly
                 num_tokens = len(config.encoding.encode(text))
                 # Start new batch once token limit exceeded
                 if token_count + num_tokens > 3000:
-                    batches.append(curr_batch)
+                    batches.append(curr_batch[:])
                     curr_batch = []
                     token_count = 0
                 curr_batch.append(text)
                 token_count += num_tokens
 
+        batches.append(curr_batch[:])
+
         return batches
 
-    async def get_batch_responses(self, batches, config, prompt):
+    async def _get_batch_responses(self, batches, config, prompt):
         responses = []
         for batch in batches:
+            # Quotes take up (waste) tokens - join text together as one long string to reduce
+            # token usage
+            batch_string = "\n".join(batch)
             history = [
-                (
-                    {
-                        "role": "user",
-                        "content": f"Here are {prompt} found in the binary:\n{batch}\n\n\
-                                Based on these, what is everything you can tell me about this program? \
-                                Explain your reasoning as much as possible.",
-                    }
-                )
+                {
+                    "role": "user",
+                    "content": f"Here are {prompt} found in the binary:\n{batch_string}\n\n\
+                            Based on these, what is everything you can tell me about this program? \
+                            Explain your reasoning as much as possible.",
+                }
             ]
-            print(history)
             try:
                 response = await get_chatgpt_response(
                     history=history, max_tokens=400, config=config
                 )
-                print(response.choices[0].message.content)
                 responses.append(response.choices[0].message.content)
 
             except OpenAIError as e:
