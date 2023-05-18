@@ -73,7 +73,7 @@ class ChatGPTProgramAnalyzer(Analyzer[ChatGPTProgramAnalyzerConfig, ChatGPTAnaly
 
     def _batch_request_text(self, texts: List[str], config, ignore_min=False):
         batches = []
-        curr_batch = []
+        curr_batch: List[str] = []
         token_count = 0
         for text in texts:
             if ignore_min or len(text) > config.min_length:

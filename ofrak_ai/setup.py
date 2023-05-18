@@ -15,10 +15,6 @@ class egg_info_ex(egg_info):
         egg_info.run(self)
 
 
-with open("README.md") as f:
-    long_description = f.read()
-
-
 # Should be the same as in build_image.py
 def read_requirements(requirements_path):
     with open(requirements_path) as requirements_handle:
@@ -42,8 +38,6 @@ setuptools.setup(
     },
     author="Red Balloon Security",
     author_email="ofrak@redballoonsecurity.com",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
     url="https://ofrak.com/",
     download_url="https://github.com/redballoonsecurity/ofrak",
     project_urls={
