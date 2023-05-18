@@ -80,13 +80,13 @@ class ChatGPTProgramAnalyzer(Analyzer[ChatGPTProgramAnalyzerConfig, ChatGPTAnaly
                 num_tokens = len(config.encoding.encode(text))
                 # Start new batch once token limit exceeded
                 if token_count + num_tokens > 3000:
-                    batches.append(curr_batch[:])
+                    batches.append(curr_batch)
                     curr_batch = []
                     token_count = 0
                 curr_batch.append(text)
                 token_count += num_tokens
 
-        batches.append(curr_batch[:])
+        batches.append(curr_batch)
 
         return batches
 
