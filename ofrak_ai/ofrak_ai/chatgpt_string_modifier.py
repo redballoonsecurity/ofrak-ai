@@ -25,6 +25,11 @@ class StringType(Enum):
 
 
 class VoiceType(Enum):
+    """
+    The built-in voice types supported by the ChatGPT String Modifier. Selecting CUSTOM requires
+    supplying a valid VoiceConfig.
+    """
+
     SASSY = 0
     PASSIVE_AGGRESIVE = 1
     PIRATE = 2
@@ -33,10 +38,15 @@ class VoiceType(Enum):
 
 @dataclass
 class VoiceConfig:
-    """ """
+    """
+    :param voice_noun: the name of the voice to use, to be used in sentence such as
+        "You are a {voice_noun} person..."
+    :param voice_adjective: the adjective form of the voice, to be used in a sentence such as
+        "Make this string more {voice_adjective}..."
+    """
 
-    voice_noun: str
-    voice_adjective: str
+    voice_noun: Optional[str] = None
+    voice_adjective: Optional[str] = None
 
 
 @dataclass
@@ -48,9 +58,11 @@ class ChatGPTStringModifierConfig(ChatGPTConfig):
         before forcefully truncating the response
     :param prompt_parts: adjustable prompt specifications to give to ChatGPT based on the string
         type
+    :param voice_type: the type of voice to ask ChatGPT to rewrite strings in
+    :param voice_config: the words to be passed to ChatGPT in the requests to modify the strings
+        using the requested voice; voice_config is ignored if the value of voice_type is not CUSTOM
     """
 
-    voice_type: VoiceType = VoiceType.CUSTOM
     min_length: int = 50
     encoding: Encoding = encoding_for_model(ChatGPTConfig.model)
     max_retries: int = 3
@@ -61,7 +73,8 @@ class ChatGPTStringModifierConfig(ChatGPTConfig):
             important that your response contains the same specifiers in the same order. ",
         }
     )
-    voice_config: VoiceConfig = field(default_factory=lambda: VoiceConfig("", ""))
+    voice_type: VoiceType = VoiceType.SASSY
+    voice_config: VoiceConfig = field(default_factory=lambda: VoiceConfig())
 
     def __post_init__(self):
         if self.voice_type == VoiceType.SASSY:
@@ -74,11 +87,18 @@ class ChatGPTStringModifierConfig(ChatGPTConfig):
             self.voice_config.voice_noun = "pirate"
             self.voice_config.voice_adjective = "piratey"
         elif self.voice_type == VoiceType.CUSTOM:
-            if self.voice_config is None:
+            if any(
+                map(
+                    lambda x: getattr(self.voice_config, x) is None,
+                    self.voice_config.__dataclass_fields__,
+                )
+            ):
                 LOGGER.error("Custom voice requires valid VoiceConfig")
+                raise ValueError("Custom voice requires valid VoiceConfig")
             self.voice_config = self.voice_config
         else:
             LOGGER.error("Invalid voice used for ChatGPTStringModifier")
+            raise ValueError("Invalid voice used for ChatGPTStringModifier")
 
 
 class ChatGPTStringModifier(Modifier[ChatGPTStringModifierConfig]):
