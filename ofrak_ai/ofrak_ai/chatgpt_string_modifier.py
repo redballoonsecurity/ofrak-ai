@@ -24,20 +24,8 @@ class StringType(Enum):
     SENTENCE = 1
 
 
-class VoiceType(Enum):
-    """
-    The built-in voice types supported by the ChatGPT String Modifier. Selecting CUSTOM requires
-    supplying a valid VoiceConfig.
-    """
-
-    SASSY = 0
-    PASSIVE_AGGRESIVE = 1
-    PIRATE = 2
-    CUSTOM = 3
-
-
 @dataclass
-class VoiceConfig:
+class Voice:
     """
     :param voice_noun: the name of the voice to use, to be used in sentence such as
         "You are a {voice_noun} person..."
@@ -49,6 +37,16 @@ class VoiceConfig:
     voice_adjective: Optional[str] = None
 
 
+class VoiceType(Enum):
+    """
+    The built-in voice types supported by the ChatGPT String Modifier.
+    """
+
+    SASSY = Voice("sassy person", "sassy")
+    PASSIVE_AGGRESIVE = Voice("passive aggressive person", "passive aggressive")
+    PIRATE = Voice("pirate", "piratey")
+
+
 @dataclass
 class ChatGPTStringModifierConfig(ChatGPTConfig):
     """
@@ -58,12 +56,7 @@ class ChatGPTStringModifierConfig(ChatGPTConfig):
         before forcefully truncating the response
     :param prompt_parts: adjustable prompt specifications to give to ChatGPT based on the string
         type
-    :param voice_type: the type of voice to ask ChatGPT to rewrite strings in
-    :param voice_config: the words to be passed to ChatGPT in the requests to modify the strings
-        using the requested voice; voice_config is ignored if the value of voice_type is not CUSTOM
-
-    :raises ValueError: if voice_type is set to CUSTOM without supplying a valid VoiceConfig or if
-        voice_type is an invalid value
+    :param voice: the type of voice to ask ChatGPT to rewrite strings in
     """
 
     min_length: int = 50
@@ -76,32 +69,7 @@ class ChatGPTStringModifierConfig(ChatGPTConfig):
             important that your response contains the same specifiers in the same order. ",
         }
     )
-    voice_type: VoiceType = VoiceType.SASSY
-    voice_config: VoiceConfig = field(default_factory=lambda: VoiceConfig())
-
-    def __post_init__(self):
-        if self.voice_type == VoiceType.SASSY:
-            self.voice_config.voice_noun = "sassy person"
-            self.voice_config.voice_adjective = "sassy"
-        elif self.voice_type == VoiceType.PASSIVE_AGGRESIVE:
-            self.voice_config.voice_noun = "passive aggressive person"
-            self.voice_config.voice_adjective = "passive aggressive"
-        elif self.voice_type == VoiceType.PIRATE:
-            self.voice_config.voice_noun = "pirate"
-            self.voice_config.voice_adjective = "piratey"
-        elif self.voice_type == VoiceType.CUSTOM:
-            if any(
-                map(
-                    lambda x: getattr(self.voice_config, x) is None,
-                    self.voice_config.__dataclass_fields__,
-                )
-            ):
-                LOGGER.error("Custom voice requires valid VoiceConfig")
-                raise ValueError("Custom voice requires valid VoiceConfig")
-            self.voice_config = self.voice_config
-        else:
-            LOGGER.error("Invalid voice used for ChatGPTStringModifier")
-            raise ValueError("Invalid voice used for ChatGPTStringModifier")
+    voice: Voice = field(default_factory=lambda: VoiceType.SASSY.value)
 
 
 class ChatGPTStringModifier(Modifier[ChatGPTStringModifierConfig]):
@@ -160,13 +128,13 @@ class ChatGPTStringModifier(Modifier[ChatGPTStringModifierConfig]):
         history = [
             {
                 "role": "user",
-                "content": f"You are a {config.voice_config.voice_noun}.\
-                                I will send a message and you will respond by making the text of the message more {config.voice_config.voice_adjective}.\
+                "content": f"You are a {config.voice.value.voice_noun}.\
+                                I will send a message and you will respond by making the text of the message more {config.voice.value.voice_adjective}.\
                                 The text you generate must be shorter or equal to the length to the length of the original message.\
                                 It is EXTREMELY important that your version is shorter than the original and contains only ASCII characters.\
                                 {(str_type == StringType.IDENTIFIER) * config.prompt_parts.get(StringType.IDENTIFIER, '')} \
                                 {(str_type == StringType.SENTENCE) * config.prompt_parts.get(StringType.SENTENCE, '')} \
-                                If you understand, make the following message more {config.voice_config.voice_adjective}: \n{text}",
+                                If you understand, make the following message more {config.voice.value.voice_adjective}: \n{text}",
             },
         ]
 
