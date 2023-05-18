@@ -61,6 +61,9 @@ class ChatGPTStringModifierConfig(ChatGPTConfig):
     :param voice_type: the type of voice to ask ChatGPT to rewrite strings in
     :param voice_config: the words to be passed to ChatGPT in the requests to modify the strings
         using the requested voice; voice_config is ignored if the value of voice_type is not CUSTOM
+
+    :raises ValueError: if voice_type is set to CUSTOM without supplying a valid VoiceConfig or if
+        voice_type is an invalid value
     """
 
     min_length: int = 50
