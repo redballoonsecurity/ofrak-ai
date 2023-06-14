@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 python:3.8-bullseye
+FROM python:3.8-bullseye
 ARG TARGETARCH
 
 # LINUX GNU + BINUTILS
